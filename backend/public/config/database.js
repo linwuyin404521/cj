@@ -1,3 +1,4 @@
+//这个是数据库配置
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 

@@ -1,3 +1,4 @@
+//数据模型-用户模型
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const validator = require('validator');

@@ -1,3 +1,4 @@
+//这个是主服务器文件
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');

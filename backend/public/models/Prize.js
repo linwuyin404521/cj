@@ -1,3 +1,4 @@
+//数据模型-奖品模型
 const mongoose = require('mongoose');
 
 const prizeSchema = new mongoose.Schema({

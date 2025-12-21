@@ -1,3 +1,4 @@
+//数据模型-活动模型
 const mongoose = require('mongoose');
 
 const activitySchema = new mongoose.Schema({

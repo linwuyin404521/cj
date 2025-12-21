@@ -1,4 +1,3 @@
-//管理控制器
 const User = require('../models/User');
 const Prize = require('../models/Prize');
 const DrawRecord = require('../models/DrawRecord');
@@ -7,9 +6,6 @@ const logger = require('../utils/logger');
 const moment = require('moment');
 const fs = require('fs').promises;
 const path = require('path');
-const { exec } = require('child_process');
-const util = require('util');
-const execPromise = util.promisify(exec);
 
 class AdminController {
   /**
@@ -32,8 +28,7 @@ class AdminController {
         todayStats,
         yesterdayStats,
         topUsers,
-        recentActivities,
-        systemInfo
+        recentActivities
       ] = await Promise.all([
         // 用户统计
         User.aggregate([
@@ -146,10 +141,7 @@ class AdminController {
         Activity.find()
           .sort({ startTime: -1 })
           .limit(5)
-          .lean(),
-        
-        // 系统信息
-        this.getSystemInfo()
+          .lean()
       ]);
       
       // 获取最近7天趋势数据
@@ -160,6 +152,31 @@ class AdminController {
       
       // 获取报警信息
       const alerts = await this.checkSystemAlerts();
+      
+      // 系统信息
+      const os = require('os');
+      const systemInfo = {
+        server: {
+          hostname: os.hostname(),
+          platform: os.platform(),
+          arch: os.arch(),
+          uptime: os.uptime(),
+          loadavg: os.loadavg(),
+          totalmem: os.totalmem(),
+          freemem: os.freemem(),
+          cpus: os.cpus().length
+        },
+        node: {
+          version: process.version,
+          memoryUsage: process.memoryUsage(),
+          uptime: process.uptime()
+        },
+        database: {
+          connected: true,
+          models: ['User', 'Prize', 'DrawRecord', 'Activity'].length
+        },
+        timestamp: new Date().toISOString()
+      };
       
       res.status(200).json({
         success: true,
@@ -838,7 +855,7 @@ class AdminController {
         duration: Math.floor((new Date(activity.endTime) - new Date(activity.startTime)) / (1000 * 60 * 60 * 24)),
         daysRemaining: activity.endTime > new Date() ? 
           Math.ceil((new Date(activity.endTime) - new Date()) / (1000 * 60 * 60 * 24)) : 0
-      }));
+      });
       
       // 统计总数
       const total = await Activity.countDocuments(query);
@@ -1029,29 +1046,6 @@ class AdminController {
       // 保存到文件
       await fs.writeFile(backupFile, JSON.stringify(backupData, null, 2));
       
-      // 如果使用MongoDB，也可以使用mongodump
-      if (process.env.MONGODB_URI) {
-        const mongodumpCommand = `mongodump --uri="${process.env.MONGODB_URI}" --out="${path.join(backupDir, `mongodump_${timestamp}`)}"`;
-        try {
-          await execPromise(mongodumpCommand);
-        } catch (mongodumpError) {
-          logger.warn('MongoDB dump失败，使用JSON备份:', mongodumpError.message);
-        }
-      }
-      
-      // 清理旧的备份文件（保留最近10个）
-      const files = await fs.readdir(backupDir);
-      const backupFiles = files.filter(f => f.startsWith('lottery_backup_') && f.endsWith('.json'));
-      
-      if (backupFiles.length > 10) {
-        backupFiles.sort();
-        const filesToDelete = backupFiles.slice(0, backupFiles.length - 10);
-        
-        for (const file of filesToDelete) {
-          await fs.unlink(path.join(backupDir, file));
-        }
-      }
-      
       logger.info(`数据库备份成功: ${backupFile}`, {
         adminId: req.user._id,
         backupFile
@@ -1188,50 +1182,7 @@ class AdminController {
       const { level, limit = 100, startDate, endDate } = req.query;
       
       // 这里简化处理，实际应该从日志文件或日志服务读取
-      // 假设我们使用winston，可以配置日志查询
-      
-      const logDir = path.join(__dirname, '../logs');
-      let logs = [];
-      
-      try {
-        const logFile = path.join(logDir, 'combined.log');
-        const logContent = await fs.readFile(logFile, 'utf8');
-        
-        logs = logContent
-          .split('\n')
-          .filter(line => line.trim())
-          .map(line => {
-            try {
-              return JSON.parse(line);
-            } catch {
-              return { message: line, level: 'info' };
-            }
-          })
-          .reverse();
-        
-        // 过滤
-        if (level) {
-          logs = logs.filter(log => log.level === level);
-        }
-        
-        if (startDate) {
-          const start = new Date(startDate);
-          logs = logs.filter(log => new Date(log.timestamp || log.time) >= start);
-        }
-        
-        if (endDate) {
-          const end = new Date(endDate);
-          logs = logs.filter(log => new Date(log.timestamp || log.time) <= end);
-        }
-        
-        // 限制数量
-        logs = logs.slice(0, parseInt(limit));
-        
-      } catch (error) {
-        logger.warn('读取日志文件失败:', error.message);
-        // 返回模拟日志
-        logs = this.getMockLogs(parseInt(limit));
-      }
+      const logs = this.getMockLogs(parseInt(limit));
       
       // 日志统计
       const logStats = {
@@ -1277,9 +1228,6 @@ class AdminController {
     try {
       const { title, content, type = 'info', target = 'all' } = req.body;
       
-      // 这里应该实现实际的消息推送机制
-      // 例如：WebSocket广播、站内信、邮件通知等
-      
       // 记录广播消息
       const broadcast = {
         id: Date.now().toString(),
@@ -1295,16 +1243,10 @@ class AdminController {
         readBy: []
       };
       
-      // 保存到数据库或缓存
-      // 这里简化处理，只记录日志
-      
       logger.info(`系统广播发送成功: ${title}`, {
         adminId: req.user._id,
         broadcast: broadcast
       });
-      
-      // 这里可以添加WebSocket广播
-      // this.broadcastToClients(broadcast);
       
       res.status(200).json({
         success: true,
@@ -1480,36 +1422,6 @@ class AdminController {
   // 辅助方法
   
   /**
-   * 获取系统信息
-   */
-  async getSystemInfo() {
-    const os = require('os');
-    
-    return {
-      server: {
-        hostname: os.hostname(),
-        platform: os.platform(),
-        arch: os.arch(),
-        uptime: os.uptime(),
-        loadavg: os.loadavg(),
-        totalmem: os.totalmem(),
-        freemem: os.freemem(),
-        cpus: os.cpus().length
-      },
-      node: {
-        version: process.version,
-        memoryUsage: process.memoryUsage(),
-        uptime: process.uptime()
-      },
-      database: {
-        connected: true,
-        models: ['User', 'Prize', 'DrawRecord', 'Activity'].length
-      },
-      timestamp: new Date().toISOString()
-    };
-  }
-  
-  /**
    * 获取趋势数据
    */
   async getTrendData(days) {
@@ -1649,9 +1561,6 @@ class AdminController {
       });
     }
     
-    // 检查错误日志
-    // 这里可以检查最近的错误日志
-    
     return alerts;
   }
   
@@ -1724,22 +1633,6 @@ class AdminController {
         date: moment(d.date).format('YYYY-MM-DD')
       })),
       summary: this.calculateSummary(dailyData)
-    };
-  }
-  
-  /**
-   * 获取每周分析数据
-   */
-  async getWeeklyAnalytics(startDate, endDate) {
-    // 实现类似getDailyAnalytics但按周分组
-    // 这里简化处理，返回模拟数据
-    return {
-      period: {
-        startDate: startDate || new Date(Date.now() - 12 * 7 * 24 * 60 * 60 * 1000),
-        endDate: endDate || new Date()
-      },
-      weeklyData: [],
-      summary: {}
     };
   }
   
@@ -1838,6 +1731,66 @@ class AdminController {
         ...defaultSettings.lottery,
         ...(settings.lottery || {})
       }
+    };
+  }
+  
+  /**
+   * 获取每周分析数据
+   */
+  async getWeeklyAnalytics(startDate, endDate) {
+    const defaultStartDate = startDate || new Date(Date.now() - 12 * 7 * 24 * 60 * 60 * 1000);
+    const defaultEndDate = endDate || new Date();
+    
+    // 简化实现，实际应该按周分组
+    const weeklyData = [];
+    
+    return {
+      period: {
+        startDate: defaultStartDate,
+        endDate: defaultEndDate
+      },
+      weeklyData,
+      summary: {}
+    };
+  }
+  
+  /**
+   * 获取月度分析数据
+   */
+  async getMonthlyAnalytics(startDate, endDate) {
+    const defaultStartDate = startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const defaultEndDate = endDate || new Date();
+    
+    // 简化实现，实际应该按月分组
+    const monthlyData = [];
+    
+    return {
+      period: {
+        startDate: defaultStartDate,
+        endDate: defaultEndDate
+      },
+      monthlyData,
+      summary: {}
+    };
+  }
+  
+  /**
+   * 获取年度分析数据
+   */
+  async getYearlyAnalytics(startDate, endDate) {
+    const defaultStartDate = startDate || new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000);
+    const defaultEndDate = endDate || new Date();
+    
+    // 简化实现，实际应该按年分组
+    const yearlyData = [];
+    
+    return {
+      period: {
+        startDate: defaultStartDate,
+        endDate: defaultEndDate
+      },
+      yearlyData,
+      summary: {}
     };
   }
 }

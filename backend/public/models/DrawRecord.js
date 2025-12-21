@@ -1,3 +1,4 @@
+//数据模型-抽奖记录模型
 const mongoose = require('mongoose');
 
 const drawRecordSchema = new mongoose.Schema({
