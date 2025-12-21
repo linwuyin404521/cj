@@ -855,7 +855,7 @@ class AdminController {
         duration: Math.floor((new Date(activity.endTime) - new Date(activity.startTime)) / (1000 * 60 * 60 * 24)),
         daysRemaining: activity.endTime > new Date() ? 
           Math.ceil((new Date(activity.endTime) - new Date()) / (1000 * 60 * 60 * 24)) : 0
-      });
+      }))
       
       // 统计总数
       const total = await Activity.countDocuments(query);
