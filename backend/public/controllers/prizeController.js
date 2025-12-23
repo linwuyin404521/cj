@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 const Prize = require('../models/Prize');
 const DrawRecord = require('../models/DrawRecord');
 const logger = require('../utils/logger');
@@ -655,7 +655,6 @@ class PrizeController {
   }
 }
 
-=======
 const Prize = require('../models/Prize');
 const DrawRecord = require('../models/DrawRecord');
 const logger = require('../utils/logger');
@@ -1311,6 +1310,4 @@ class PrizeController {
     }
   }
 }
-
->>>>>>> 7b1fccad50f1492c9684d8a85ddea6dca559fee9
 module.exports = new PrizeController();
