@@ -1,0 +1,39 @@
+* [33mefd9936[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m 奖品和抽奖逻辑控制器
+[31m|[m *   [33m8e4deac[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge branch 'main' of https://github.com/linwuyin404521/cj
+[31m|[m [32m|[m[31m\[m  
+[31m|[m [32m|[m[31m/[m  
+[31m|[m[31m/[m[32m|[m   
+* [32m|[m   [33m972441c[m 对接api接口
+[34m|[m[35m\[m [32m\[m  
+* [35m|[m [32m|[m [33mc1c037c[m 对接api接口
+[35m|[m [35m|[m * [33md57e318[m 111
+[35m|[m [35m|[m[35m/[m  
+[35m|[m * [33md0af012[m 111
+[35m|[m[35m/[m  
+* [33m533ad21[m 解决了缺少的属性的冲突
+* [33m854b976[m 创建了后端API接口，工具函数及业务服务层
+* [33mcab2a67[m 晶：修改
+* [33ma8ea2ce[m 晶：修改
+* [33m6fee885[m 晶：修改
+*   [33m5cab079[m 晶：修改
+[36m|[m[1;31m\[m  
+[36m|[m * [33m7b1fcca[m Add files via upload
+[36m|[m * [33m80c6bdc[m Add files via upload
+* [1;31m|[m [33m8da3c88[m add scripts
+* [1;31m|[m [33m0a93a11[m add config
+[1;31m|[m[1;31m/[m  
+*   [33ma67894e[m Merge branch 'main' of https://github.com/linwuyin404521/cj
+[1;32m|[m[1;33m\[m  
+[1;32m|[m * [33m62defb6[m 前端初始化
+[1;32m|[m * [33m8221e84[m 前端初始化
+* [1;33m|[m [33mf5c36b1[m add
+* [1;33m|[m [33ma94047c[m add
+* [1;33m|[m [33m0208a98[m add auth.js
+[1;33m|[m[1;33m/[m  
+* [33m84ca3e2[m add Activity.js
+* [33m25ac2f3[m 
+* [33m59cae43[m add index.html
+* [33m86e70f9[m 分工
+* [33m1504a37[m 初始化项目
+* [33mebb3fbb[m 初始化
+* [33me136c63[m Initial commit
