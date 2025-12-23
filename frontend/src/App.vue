@@ -1,26 +1,34 @@
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
-  <HelloWorld msg="Welcome to Your Vue.js App"/>
+  <div id="app">
+    <router-view></router-view>
+  </div>
 </template>
 
-<script>
-import HelloWorld from './components/HelloWorld.vue'
+<script setup>
+import { watch } from 'vue'
+import { useRoute } from 'vue-router'
 
-export default {
-  name: 'App',
-  components: {
-    HelloWorld
-  }
-}
+const route = useRoute()
+
+// 监听路由变化，更新页面标题
+watch(
+  () => route.name,
+  (routeName) => {
+    const titles = {
+      'login': '登录 - 电商抽奖系统',
+      'register': '注册 - 电商抽奖系统',
+      'lottery': '幸运大转盘 - 抽奖赢好礼'
+    }
+    document.title = titles[routeName] || '电商幸运大转盘'
+  },
+  { immediate: true }
+)
 </script>
 
-<style>
+<style lang="scss">
 #app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  font-family: 'Poppins', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 </style>
