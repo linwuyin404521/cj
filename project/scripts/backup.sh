@@ -1,41 +1,34 @@
 #!/bin/bash
-# scripts/backup.sh
 
-BACKUP_DIR="/backup/lottery"
+# 数据库备份脚本
+set -e
+
+BACKUP_DIR="mongodb/backup"
 DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_PATH="$BACKUP_DIR/backup_$DATE"
+BACKUP_FILE="$BACKUP_DIR/backup_$DATE.tar.gz"
 
-echo "💾 开始备份抽奖系统数据..."
+echo "📦 开始备份数据库..."
 
 # 创建备份目录
-mkdir -p $BACKUP_PATH
+mkdir -p $BACKUP_DIR
 
-# 1. 备份MongoDB
-echo "备份MongoDB..."
-docker-compose exec -T mongodb mongodump \
-  --uri="mongodb://admin:$MONGO_ROOT_PASSWORD@localhost:27017/lottery" \
-  --out=/tmp/backup
-docker cp lottery-mongodb:/tmp/backup $BACKUP_PATH/mongodb
+# 执行备份
+docker-compose -f docker/docker-compose.yml exec mongodb \
+    mongodump --username $MONGO_ROOT_USER --password $MONGO_ROOT_PASSWORD \
+    --authenticationDatabase admin --db lottery_system \
+    --out /backup/$DATE
 
-# 2. 备份配置文件
-echo "备份配置文件..."
-cp -r nginx $BACKUP_PATH/
-cp -r docker $BACKUP_PATH/
-cp docker-compose.yml $BACKUP_PATH/
-cp .env $BACKUP_PATH/
+# 压缩备份文件
+docker-compose -f docker/docker-compose.yml exec mongodb \
+    tar -czf /backup/backup_$DATE.tar.gz -C /backup/$DATE .
 
-# 3. 备份前端构建
-echo "备份前端..."
-cp -r frontend/dist $BACKUP_PATH/frontend_dist
+# 清理临时文件
+docker-compose -f docker/docker-compose.yml exec mongodb \
+    rm -rf /backup/$DATE
 
-# 4. 压缩备份
-echo "压缩备份..."
-tar -czf $BACKUP_PATH.tar.gz -C $BACKUP_PATH .
+echo "✅ 备份完成: $BACKUP_FILE"
 
-# 5. 清理临时文件
-rm -rf $BACKUP_PATH
-
-# 6. 删除7天前的备份
+# 删除7天前的备份
 find $BACKUP_DIR -name "backup_*.tar.gz" -mtime +7 -delete
 
-echo "✅ 备份完成: $BACKUP_PATH.tar.gz"
+echo "🗑️  已清理7天前的备份"
