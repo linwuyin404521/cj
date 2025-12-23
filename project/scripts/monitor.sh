@@ -1,84 +1,39 @@
 #!/bin/bash
-# scripts/monitor.sh
+
+# 系统监控脚本
+set -e
+
+echo "📊 系统监控报告"
+echo "================"
 
 # 检查服务状态
-check_service() {
-    local service=$1
-    local port=$2
-    
-    if docker-compose ps $service | grep -q "Up"; then
-        echo "✅ $service 运行正常"
-        return 0
-    else
-        echo "❌ $service 服务异常"
-        return 1
-    fi
-}
+echo "🔍 服务状态:"
+docker-compose -f docker/docker-compose.yml ps
 
-# 检查端口
-check_port() {
-    local host=$1
-    local port=$2
-    
-    if nc -z $host $port > /dev/null 2>&1; then
-        echo "✅ 端口 $port 可访问"
-        return 0
-    else
-        echo "❌ 端口 $port 不可访问"
-        return 1
-    fi
-}
+echo -e "\n📈 资源使用:"
+docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
 
-# 检查磁盘空间
-check_disk() {
-    local threshold=80
-    local usage=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
-    
-    if [ $usage -ge $threshold ]; then
-        echo "⚠️  磁盘空间不足: $usage%"
-        return 1
-    else
-        echo "✅ 磁盘空间正常: $usage%"
-        return 0
-    fi
-}
+echo -e "\n🗄️  数据库状态:"
+docker-compose -f docker/docker-compose.yml exec mongodb \
+    mongosh --username $MONGO_ROOT_USER --password $MONGO_ROOT_PASSWORD \
+    --authenticationDatabase admin --eval "
+    db = db.getSiblingDB('lottery_system');
+    print('用户数量:', db.users.countDocuments());
+    print('奖品数量:', db.prizes.countDocuments());
+    print('抽奖记录:', db.lotteryrecords.countDocuments());
+    print('今日抽奖:', db.lotteryrecords.countDocuments({
+        spinDate: { \$gte: new Date(new Date().setHours(0,0,0,0)) }
+    }));
+    "
 
-# 检查内存
-check_memory() {
-    local threshold=90
-    local usage=$(free | grep Mem | awk '{print int($3/$2 * 100)}')
-    
-    if [ $usage -ge $threshold ]; then
-        echo "⚠️  内存使用率高: $usage%"
-        return 1
-    else
-        echo "✅ 内存使用正常: $usage%"
-        return 0
-    fi
-}
+echo -e "\n🌐 Nginx 访问日志统计:"
+docker-compose -f docker/docker-compose.yml logs --tail=100 nginx | \
+    grep -E '"GET|"POST' | \
+    awk '{print \$1}' | \
+    sort | uniq -c | sort -rn | head -10
 
-# 主监控逻辑
-echo "📊 抽奖系统监控检查 $(date)"
-echo "=============================="
+echo -e "\n🔄 最近错误:"
+docker-compose -f docker/docker-compose.yml logs --tail=50 | grep -i error | tail -10
 
-# 检查服务
-check_service mongodb 27017
-check_service backend 3000
-check_service frontend 80
-check_service nginx 80
-
-echo "---"
-
-# 检查端口
-check_port localhost 27017
-check_port localhost 3000
-check_port localhost 80
-
-echo "---"
-
-# 检查系统资源
-check_disk
-check_memory
-
-echo "=============================="
-echo "监控检查完成"
+echo -e "\n💾 磁盘使用:"
+df -h | grep -E "Filesystem|/dev/"

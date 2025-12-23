@@ -1,59 +1,67 @@
 #!/bin/bash
-# scripts/deploy.sh
 
+# 抽奖系统部署脚本
 set -e
 
 echo "🚀 开始部署抽奖系统..."
 
-# 1. 加载环境变量
+# 检查 Docker 是否安装
+if ! command -v docker &> /dev/null; then
+    echo "❌ Docker 未安装，请先安装 Docker"
+    exit 1
+fi
+
+# 检查 Docker Compose 是否安装
+if ! command -v docker-compose &> /dev/null; then
+    echo "❌ Docker Compose 未安装，请先安装 Docker Compose"
+    exit 1
+fi
+
+# 加载环境变量
 if [ -f .env ]; then
+    echo "📁 加载环境变量..."
     source .env
 else
-    echo "❌ 找不到 .env 文件"
-    exit 1
+    echo "⚠️  未找到 .env 文件，使用默认配置"
 fi
 
-# 2. 构建前端
-echo "📦 构建前端..."
-cd frontend
-npm install
-npm run build
-cd ..
+# 创建必要的目录
+echo "📂 创建目录..."
+mkdir -p nginx/ssl
+mkdir -p mongodb/backup
+mkdir -p logs/{nginx,backend,frontend}
 
-# 3. 构建Docker镜像
-echo "🐳 构建Docker镜像..."
-docker-compose build
-
-# 4. 停止旧服务
-echo "🛑 停止旧服务..."
-docker-compose down || true
-
-# 5. 启动新服务
-echo "🚀 启动新服务..."
-docker-compose up -d
-
-# 6. 健康检查
-echo "🏥 健康检查..."
-sleep 10
-
-# 检查后端服务
-if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
-    echo "✅ 后端服务运行正常"
-else
-    echo "❌ 后端服务启动失败"
-    docker-compose logs backend
-    exit 1
+# 生成 SSL 证书（如果不存在）
+if [ ! -f nginx/ssl/lottery.crt ]; then
+    echo "🔐 生成 SSL 证书..."
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout nginx/ssl/lottery.key \
+        -out nginx/ssl/lottery.crt \
+        -subj "/C=CN/ST=Beijing/L=Beijing/O=Lottery/CN=lottery.example.com"
 fi
 
-# 检查前端服务
-if curl -f http://localhost > /dev/null 2>&1; then
-    echo "✅ 前端服务运行正常"
-else
-    echo "❌ 前端服务启动失败"
-    docker-compose logs nginx
-    exit 1
-fi
+# 构建并启动服务
+echo "🔨 构建 Docker 镜像..."
+docker-compose -f docker/docker-compose.yml build
 
-echo "🎉 部署成功！"
-echo "🌐 访问地址: https://${DOMAIN_NAME:-localhost}"
-echo "📊 查看日志: docker-compose logs -f"
+echo "🚀 启动服务..."
+docker-compose -f docker/docker-compose.yml up -d
+
+# 等待服务启动
+echo "⏳ 等待服务启动..."
+sleep 30
+
+# 检查服务状态
+echo "🔍 检查服务状态..."
+docker-compose -f docker/docker-compose.yml ps
+
+# 运行数据库初始化
+echo "🗄️  初始化数据库..."
+docker-compose -f docker/docker-compose.yml exec mongodb \
+    mongosh --username $MONGO_ROOT_USER --password $MONGO_ROOT_PASSWORD --authenticationDatabase admin \
+    /docker-entrypoint-initdb.d/init.js
+
+echo "✅ 部署完成！"
+echo "🌐 前端访问: http://localhost"
+echo "🔧 后端API: http://localhost/api"
+echo "📊 MongoDB: mongodb://localhost:27017"
