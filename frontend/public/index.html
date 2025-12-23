@@ -1,15 +1,193 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>电商幸运大转盘 - 抽奖赢好礼</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>幸运大转盘抽奖系统</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- 头部区域 -->
+        <header class="header">
+            <h1><i class="fas fa-gift"></i> 幸运大转盘</h1>
+            <p class="subtitle">转动幸运，赢取惊喜好礼！</p>
+        </header>
+
+        <div class="container">
+            <!-- 左侧转盘区域 -->
+            <div class="lottery-section">
+                <div class="wheel-container">
+                    <!-- 转盘主体 -->
+                    <div class="wheel-wrapper" :style="{ transform: `rotate(${wheelRotation}deg)` }">
+                        <canvas ref="wheelCanvas" class="wheel" width="400" height="400"></canvas>
+                        <div class="wheel-center"></div>
+                    </div>
+                    
+                    <!-- 指针 -->
+                    <div class="pointer">
+                        <i class="fas fa-caret-down"></i>
+                    </div>
+                    
+                    <!-- 开始抽奖按钮 -->
+                    <button 
+                        class="draw-button" 
+                        :disabled="isDrawing || !userInfo.name || !userInfo.phone" 
+                        @click="startDraw"
+                    >
+                        <span v-if="!isDrawing">
+                            <i class="fas fa-redo"></i> {{ drawButtonText }}
+                        </span>
+                        <span v-else>
+                            <i class="fas fa-spinner fa-spin"></i> 抽奖中...
+                        </span>
+                    </button>
+                </div>
+                
+                <!-- 抽奖结果 -->
+                <div class="result-section" v-if="drawResult">
+                    <div class="result-card" :class="resultClass">
+                        <h3><i class="fas fa-trophy"></i> 抽奖结果</h3>
+                        <p class="prize-name">{{ drawResult.prizeName }}</p>
+                        <p class="prize-level">等级：{{ drawResult.level }}</p>
+                        <p class="draw-time">时间：{{ drawResult.time }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧信息区域 -->
+            <div class="info-section">
+                <!-- 用户信息表单 -->
+                <div class="user-form card">
+                    <h2><i class="fas fa-user"></i> 用户信息</h2>
+                    <div class="form-group">
+                        <label for="name"><i class="fas fa-signature"></i> 姓名</label>
+                        <input 
+                            type="text" 
+                            id="name" 
+                            v-model="userInfo.name" 
+                            placeholder="请输入您的姓名"
+                            :disabled="isDrawing"
+                        >
+                        <p class="form-hint" v-if="!userInfo.name">请填写姓名以参与抽奖</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone"><i class="fas fa-phone"></i> 手机号</label>
+                        <input 
+                            type="tel" 
+                            id="phone" 
+                            v-model="userInfo.phone" 
+                            placeholder="请输入您的手机号"
+                            :disabled="isDrawing"
+                            @input="validatePhone"
+                        >
+                        <p class="form-hint" v-if="phoneError" class="error">{{ phoneError }}</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="email"><i class="fas fa-envelope"></i> 邮箱 (可选)</label>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            v-model="userInfo.email" 
+                            placeholder="请输入您的邮箱"
+                            :disabled="isDrawing"
+                        >
+                    </div>
+                    <button 
+                        class="save-button" 
+                        @click="saveUserInfo"
+                        :disabled="isDrawing || !userInfo.name || !userInfo.phone || phoneError"
+                    >
+                        <i class="fas fa-save"></i> 保存信息
+                    </button>
+                </div>
+                
+                <!-- 抽奖记录 -->
+                <div class="record-section card">
+                    <h2><i class="fas fa-history"></i> 抽奖记录</h2>
+                    <div class="record-list">
+                        <div 
+                            v-for="(record, index) in drawRecords" 
+                            :key="index" 
+                            class="record-item"
+                            :class="getRecordClass(record.level)"
+                        >
+                            <div class="record-header">
+                                <span class="record-index">#{{ index + 1 }}</span>
+                                <span class="record-level">{{ record.level }}</span>
+                                <span class="record-time">{{ formatTime(record.time) }}</span>
+                            </div>
+                            <div class="record-prize">{{ record.prizeName }}</div>
+                        </div>
+                        <div class="empty-records" v-if="drawRecords.length === 0">
+                            <i class="fas fa-clipboard-list"></i>
+                            <p>暂无抽奖记录</p>
+                        </div>
+                    </div>
+                    <button 
+                        class="clear-button" 
+                        @click="clearRecords"
+                        v-if="drawRecords.length > 0"
+                    >
+                        <i class="fas fa-trash"></i> 清空记录
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 奖品配置展示 -->
+        <div class="prize-config card">
+            <h2><i class="fas fa-star"></i> 奖品设置</h2>
+            <div class="prize-list">
+                <div 
+                    v-for="(prize, index) in prizes" 
+                    :key="index" 
+                    class="prize-item"
+                    :style="{ backgroundColor: prize.color }"
+                >
+                    <span class="prize-level">{{ prize.level }}</span>
+                    <span class="prize-name">{{ prize.name }}</span>
+                    <span class="prize-probability">概率: {{ prize.probability }}%</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 底部信息 -->
+        <footer class="footer">
+            <p>幸运大转盘抽奖系统 &copy; 2023 | 使用Vue.js + Node.js + MongoDB构建</p>
+            <p class="hint">提示：请先填写姓名和手机号，然后保存信息即可开始抽奖</p>
+        </footer>
+        
+        <!-- 抽奖结果弹窗 -->
+        <div class="modal-overlay" v-if="showModal">
+            <div class="modal" :class="resultClass">
+                <div class="modal-header">
+                    <h3><i class="fas fa-award"></i> 恭喜您！</h3>
+                    <button class="close-modal" @click="showModal = false">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-prize-icon">
+                        <i :class="modalIcon"></i>
+                    </div>
+                    <h2 class="modal-prize">{{ drawResult.prizeName }}</h2>
+                    <p class="modal-level">{{ drawResult.level }}</p>
+                    <p class="modal-message">{{ modalMessage }}</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-button" @click="showModal = false">确认</button>
+                    <button class="modal-button share" @click="shareResult">
+                        <i class="fas fa-share-alt"></i> 分享
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+</body>
 </html>
